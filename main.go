@@ -416,15 +416,16 @@ func doBoxLogin(rw *saferw.SafeRW) {
 
 func onConnect(rw *saferw.SafeRW) {
 	loggermsg.Info("############onConnect")
+	loggermsg.Info("working start~~~~~~~~~~~~")
 	//time.Sleep(time.Minute * 100)
 
 	//{
 	//	doLogin(rw)
-	//	doCreateDir(rw, "/20201017-2/files/testdir1")
-	//	doCreateDir(rw, "/20201017-2/files/testdir2")
-	//	doCreateDir(rw, "/20201017-2/files/testdir3")
-	//	doCreateDir(rw, "/20201017-2/files/testdir4")
-	//	doCreateDir(rw, "/20201017-2/files/testdir5")
+	//	doCreateDir(rw, "/20201021/files/testdir1")
+	//	doCreateDir(rw, "/20201021/files/testdir2")
+	//	doCreateDir(rw, "/20201021/files/testdir3")
+	//	doCreateDir(rw, "/20201021/files/testdir4")
+	//	doCreateDir(rw, "/20201021/files/testdir5")
 	//}
 
 	//{
@@ -470,33 +471,29 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	{
-		remoteDir := "/20201019/files/20201020-4"
+		remoteDir := "/20201024/lzh2/"
 		doLogin(rw)
-		loggermsg.Info("~~~~~~~~~~~~~~~~~~~~~~~~login suc")
-		doUploadFile(rw, "lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
-		//doUploadFile(rw, "lws-iot-sdk-master.zip", remoteDir)
-		//doUploadFile(rw, "binding.go", remoteDir)
-		//doUploadFile(rw, "app1", remoteDir)
-		//doUploadFile(rw, "go.mod", remoteDir)
-		//doUploadFile(rw, "go.sum", remoteDir)
-		//doUploadFile(rw, "main.go", remoteDir)
-		//doUploadFile(rw, "Makefile", remoteDir)
-		//doUploadFile(rw, "private.key", remoteDir)
+		doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
+		doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
+		doUploadFile(rw, "data/app1", remoteDir)
+		doUploadFile(rw, "go.mod", remoteDir)
+		doUploadFile(rw, "go.sum", remoteDir)
+		doUploadFile(rw, "main.go", remoteDir)
+		doUploadFile(rw, "Makefile", remoteDir)
+		doUploadFile(rw, "private.key", remoteDir)
 	}
 
 	//{
-	//	remoteDir := "/20201019/files/20201020-3/"
+	//	remoteDir := "/20201023/test3/"
 	//	doLogin(rw)
-	//	time.Sleep(time.Minute * 10)
-	//	doDownloadFile(rw, remoteDir+"lotus_v0.1.0_linux-amd64.tar.gz", "./20201020-1.dld")
-	//	//doDownloadFile(rw, remoteDir+"lws-iot-sdk-master.zip", "./20201019-2.dld")
-	//	//doDownloadFile(rw, remoteDir+"binding.go", "./20201019-3.dld")
-	//	//doDownloadFile(rw, remoteDir+"app1", "./20201019-4.dld")
-	//	//doDownloadFile(rw, remoteDir+"go.mod", "./20201019-5.dld")
-	//	//doDownloadFile(rw, remoteDir+"go.sum", "./20201019-6.dld")
-	//	//doDownloadFile(rw, remoteDir+"main.go", "./20201019-7.dld")
-	//	//doDownloadFile(rw, remoteDir+"Makefile", "./20201019-8.dld")
-	//	//doDownloadFile(rw, remoteDir+"private.key", "./20201019-9.dld")
+	//	doDownloadFile(rw, remoteDir+"data/lotus_v0.1.0_linux-amd64.tar.gz", "./dld2/20201023-1.dld")
+	//	doDownloadFile(rw, remoteDir+"data/lws-iot-sdk-master.zip", "./dld2/20201023-2.dld")
+	//	doDownloadFile(rw, remoteDir+"data/app1", "./dld2/20201023-3.dld")
+	//	doDownloadFile(rw, remoteDir+"go.mod", "./dld2/20201023-4.dld")
+	//	doDownloadFile(rw, remoteDir+"go.sum", "./dld2/20201023-5.dld")
+	//	doDownloadFile(rw, remoteDir+"main.go", "./dld2/20201023-6.dld")
+	//	doDownloadFile(rw, remoteDir+"Makefile", "./dld2/20201023-7.dld")
+	//	doDownloadFile(rw, remoteDir+"private.key", "./dld2/20201023-8.dld")
 	//}
 
 	//{
@@ -514,4 +511,5 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doReset(rw)
 	//}
 
+	loggermsg.Info("working done~~~~~~~~~~~~")
 }

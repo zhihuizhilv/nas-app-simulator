@@ -58,6 +58,9 @@ func bind() {
 		return
 	}
 
+	time.Sleep(time.Second*2)
+	bind.Bye(deviceid, 5)
+
 	loggermsg.Info("nas id:", nasid)
 	return
 }

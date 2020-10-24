@@ -12,6 +12,9 @@ import (
 )
 
 func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
+	loggermsg.Info("upload faile begin ~~~~~~~~~")
+	defer loggermsg.Info("upload faile end ~~~~~~~~~")
+
 	filePath := "./" + filename
 	fileSize := getFileSize(filePath)
 
@@ -20,8 +23,8 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 	prepareUpload.Path = dir + "/" + filename
 	prepareUpload.Size = fileSize
 	prepareUpload.Hash = getFileHash(filePath)
-	prepareUpload.Encrypt = 0
-	prepareUpload.BackupNum = 1
+	prepareUpload.Encrypt = 1
+	prepareUpload.BackupNum = 0
 
 	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE")
 	err := sendMsg(protocol.PREPARE_UPLOADFILE, &prepareUpload, rw)
