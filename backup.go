@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"gitlab.dabank.io/nas/go-nas/p2p/protocol"
-	"gitlab.dabank.io/nas/go-nas/saferw"
+	"gitlab.dabank.io/nas/go-msgbase/p2pprotocol"
+	"gitlab.dabank.io/nas/go-msgbase/saferw"
 	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"os"
@@ -18,7 +18,7 @@ func doBackUpFile(rw *saferw.SafeRW, name string) {
 
 	bbcAddr := "15wzfexznydjrsr0qwfma2ppjqs3y1krkpbdvhkme81y7wemytcaf8k28"
 
-	var prepare protocol.PrepareBackupFile
+	var prepare p2pprotocol.PrepareBackupFile
 	prepare.Nonce = rand.Uint32()
 	prepare.Timestamp = uint64(time.Now().Unix())
 	prepare.BbcAddr = bbcAddr
@@ -27,7 +27,7 @@ func doBackUpFile(rw *saferw.SafeRW, name string) {
 	prepare.Price = 10000
 	prepare.Signature = nil
 
-	err := sendMsg(protocol.PREPARE_BACKUPFILE, &prepare, rw)
+	err := sendMsg(p2pprotocol.PREPARE_BACKUPFILE, &prepare, rw)
 	if err != nil {
 		return
 	}
@@ -58,14 +58,14 @@ func doBackUpFile(rw *saferw.SafeRW, name string) {
 			break
 		}
 
-		var frame protocol.BackupFileFrame
+		var frame p2pprotocol.BackupFileFrame
 		frame.TaskId = taskid
 		frame.FrameNum = uint32(frameNum)
 		frame.FrameId = i
 		frame.FrameSize = uint32(n)
 		frame.FrameHash = getDataHash(buf[:n])
 		frame.Data = buf[:n]
-		sendMsg(protocol.BACKUPFILE_FRAME, &frame, rw)
+		sendMsg(p2pprotocol.BACKUPFILE_FRAME, &frame, rw)
 		loggermsg.Info("sent frame. frame id:", i, ", len:", n)
 
 		i++
@@ -80,7 +80,7 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 	hash, _ := hex.DecodeString(hashStr)
 	sign, _ := hex.DecodeString("112233")
 
-	var prepare protocol.PrepareRecoverFile
+	var prepare p2pprotocol.PrepareRecoverFile
 	prepare.Nonce = rand.Uint32()
 	prepare.Timestamp = uint64(time.Now().Unix())
 	prepare.BbcAddr = bbcAddr
@@ -88,7 +88,7 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 	prepare.Offset = 0
 	prepare.Signature = sign
 
-	sendMsg(protocol.PREPARE_RECOVERFILE, &prepare, rw)
+	sendMsg(p2pprotocol.PREPARE_RECOVERFILE, &prepare, rw)
 
 	rbufLen := 10 * 1024 * 1024
 	head := make([]byte, 8)
@@ -107,7 +107,7 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 
 	respMsgLen, respCmd := parseMsgLenAndCmd(head)
 	loggermsg.Info("msg len:", respMsgLen, ", msg cmd:", respCmd)
-	if protocol.P2pMsgID(respCmd) != protocol.PREPARE_RECOVERFILE_RESP {
+	if p2pprotocol.P2pMsgID(respCmd) != p2pprotocol.PREPARE_RECOVERFILE_RESP {
 		loggermsg.Error("invalid prepare recover resp msg cmd")
 		return
 	}
@@ -124,7 +124,7 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 		loggermsg.Info("read msg loop, n:", n, ", rn:", rn)
 	}
 
-	var prepareResp protocol.PrepareRecoverFileResp
+	var prepareResp p2pprotocol.PrepareRecoverFileResp
 	err = proto.Unmarshal(rbuf[:respMsgLen-8], &prepareResp)
 	if err != nil {
 		loggermsg.Error("protobuf unmarshal PrepareRecoverFileResp fail. err:", err)
@@ -160,7 +160,7 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 
 		respMsgLen, respCmd := parseMsgLenAndCmd(head)
 		loggermsg.Info("msg len:", respMsgLen, ", msg cmd:", respCmd)
-		if protocol.P2pMsgID(respCmd) != protocol.RECOVERFILE_FRAME {
+		if p2pprotocol.P2pMsgID(respCmd) != p2pprotocol.RECOVERFILE_FRAME {
 			loggermsg.Error("invalid recover frame msg cmd")
 			return
 		}
@@ -180,7 +180,7 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 			}
 		}
 
-		var frame protocol.RecoverFileFrame
+		var frame p2pprotocol.RecoverFileFrame
 		err = proto.Unmarshal(rbuf[:respMsgLen-8], &frame)
 		if err != nil {
 			loggermsg.Error("protobuf unmarshal RecoverFileFrame fail. err:", err)

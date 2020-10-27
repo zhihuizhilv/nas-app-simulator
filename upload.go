@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
-	"gitlab.dabank.io/nas/go-nas/p2p/protocol"
-	"gitlab.dabank.io/nas/go-nas/saferw"
+	"gitlab.dabank.io/nas/go-msgbase/p2pprotocol"
+	"gitlab.dabank.io/nas/go-msgbase/saferw"
 	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"os"
@@ -18,7 +18,7 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 	filePath := "./" + filename
 	fileSize := getFileSize(filePath)
 
-	var prepareUpload protocol.PrepareUploadFile
+	var prepareUpload p2pprotocol.PrepareUploadFile
 	prepareUpload.Nonce = rand.Uint32()
 	prepareUpload.Path = dir + "/" + filename
 	prepareUpload.Size = fileSize
@@ -27,7 +27,7 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 	prepareUpload.BackupNum = 0
 
 	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE")
-	err := sendMsg(protocol.PREPARE_UPLOADFILE, &prepareUpload, rw)
+	err := sendMsg(p2pprotocol.PREPARE_UPLOADFILE, &prepareUpload, rw)
 	if err != nil {
 		return
 	}
@@ -59,14 +59,14 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 			break
 		}
 
-		var uploadFrame protocol.UploadFileFrame
+		var uploadFrame p2pprotocol.UploadFileFrame
 		uploadFrame.TaskId = taskid
 		uploadFrame.FrameNum = uint32(frameNum)
 		uploadFrame.FrameId = i
 		uploadFrame.FrameSize = uint32(n)
 		uploadFrame.FrameHash = getDataHash(buf[:n])
 		uploadFrame.Data = buf[:n]
-		sendMsg(protocol.UPLOADFILE_FRAME, &uploadFrame, rw)
+		sendMsg(p2pprotocol.UPLOADFILE_FRAME, &uploadFrame, rw)
 		loggermsg.Info("sent frame. frame id:", i, ", len:", n)
 
 		i++
@@ -80,12 +80,12 @@ func doDownloadFile(rw *saferw.SafeRW, path, name string) {
 	srcPath := path
 	desPath := name
 
-	var preDownload protocol.PrepareDownloadFile
+	var preDownload p2pprotocol.PrepareDownloadFile
 	preDownload.Nonce = rand.Uint32()
 	preDownload.Path = srcPath
 	preDownload.Offset = 0
 
-	err := sendMsg(protocol.PREPARE_DOWNLOADFILE, &preDownload, rw)
+	err := sendMsg(p2pprotocol.PREPARE_DOWNLOADFILE, &preDownload, rw)
 	if err != nil {
 		return
 	}
@@ -107,7 +107,7 @@ func doDownloadFile(rw *saferw.SafeRW, path, name string) {
 
 	respMsgLen, respCmd := parseMsgLenAndCmd(head)
 	loggermsg.Info("msg len:", respMsgLen, ", msg cmd:", respCmd)
-	if protocol.P2pMsgID(respCmd) != protocol.PREPARE_DOWNLOADFILE_RESP {
+	if p2pprotocol.P2pMsgID(respCmd) != p2pprotocol.PREPARE_DOWNLOADFILE_RESP {
 		loggermsg.Error("invalid prepare download resp msg cmd")
 		return
 	}
@@ -124,7 +124,7 @@ func doDownloadFile(rw *saferw.SafeRW, path, name string) {
 		loggermsg.Info("read msg loop, n:", n, ", rn:", rn)
 	}
 
-	var preDownloadResp protocol.PrepareDownloadFileResp
+	var preDownloadResp p2pprotocol.PrepareDownloadFileResp
 	err = proto.Unmarshal(rbuf[:respMsgLen-8], &preDownloadResp)
 	if err != nil {
 		loggermsg.Error("protobuf unmarshal PrepareDownloadFileResp fail. err:", err)
@@ -159,7 +159,7 @@ func doDownloadFile(rw *saferw.SafeRW, path, name string) {
 
 		respMsgLen, respCmd := parseMsgLenAndCmd(head)
 		loggermsg.Info("msg len:", respMsgLen, ", msg cmd:", respCmd)
-		if protocol.P2pMsgID(respCmd) != protocol.DOWNLOAD_FILEFRAME {
+		if p2pprotocol.P2pMsgID(respCmd) != p2pprotocol.DOWNLOAD_FILEFRAME {
 			loggermsg.Error("invalid download frame msg cmd")
 			return
 		}
@@ -179,7 +179,7 @@ func doDownloadFile(rw *saferw.SafeRW, path, name string) {
 			}
 		}
 
-		var downloadFramd protocol.DownloadFileFrame
+		var downloadFramd p2pprotocol.DownloadFileFrame
 		err = proto.Unmarshal(rbuf[:respMsgLen-8], &downloadFramd)
 		if err != nil {
 			loggermsg.Error("protobuf unmarshal DownloadFileFrame fail. err:", err)

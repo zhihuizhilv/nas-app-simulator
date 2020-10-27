@@ -9,8 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"gitlab.dabank.io/nas/go-nas/p2p/protocol"
-	"gitlab.dabank.io/nas/go-nas/utils/bindhelp"
+	"gitlab.dabank.io/nas/go-msgbase/udpprotocol"
 	"net"
 	"os"
 	"sort"
@@ -241,12 +240,12 @@ func bindProcess(deviceid string, pc net.PacketConn, raddr net.Addr, key []byte,
 			continue
 		}
 
-		if protocol.UdpMsgID(rbuf[0]) != protocol.UDP_NASID {
-			loggermsg.Error("invalid received udp msg id", "expect", protocol.UDP_NASID, "acture", rbuf[0])
+		if udpprotocol.UdpMsgID(rbuf[0]) != udpprotocol.UDP_NASID {
+			loggermsg.Error("invalid received udp msg id", "expect", udpprotocol.UDP_NASID, "acture", rbuf[0])
 			return "", errors.New("invalid box resp msg")
 		}
 
-		if !bindhelp.CheckCrc16(rbuf[:n]) {
+		if !udpprotocol.CheckCrc16(rbuf[:n]) {
 			loggermsg.Error("invalid crc16 signature")
 			return "", errors.New("invalid crc16 signature")
 		}
@@ -262,7 +261,7 @@ func bindProcess(deviceid string, pc net.PacketConn, raddr net.Addr, key []byte,
 }
 
 func parseNasId(deviceid string, data []byte) (string, error) {
-	var resp protocol.UdpNasId
+	var resp udpprotocol.UdpNasId
 	err := proto.Unmarshal(data, &resp)
 	if err != nil {
 		loggermsg.Error("protobuf unmarshal UdpNasId fail. err:", err)
@@ -275,7 +274,7 @@ func parseNasId(deviceid string, data []byte) (string, error) {
 	}
 
 	s := sha256.Sum256([]byte(deviceid))
-	id, err := bindhelp.AES256Decrypt(s[:], resp.Id)
+	id, err := udpprotocol.AES256Decrypt(s[:], resp.Id)
 	if err != nil {
 		return "", err
 	}
@@ -288,7 +287,7 @@ func sendBey(pc net.PacketConn, raddr net.Addr) error {
 	loggermsg.Debug("send bye begin")
 	defer loggermsg.Debug("send bye end")
 
-	var bye protocol.UdpBye
+	var bye udpprotocol.UdpBye
 	bye.Timestamp = uint64(time.Now().Unix())
 	buf, err := proto.Marshal(&bye)
 	if err != nil {
@@ -298,9 +297,9 @@ func sendBey(pc net.PacketConn, raddr net.Addr) error {
 
 	msgBuflen := len(buf) + 3
 	msgBuf := make([]byte, msgBuflen)
-	msgBuf[0] = byte(protocol.UDP_BYE)
+	msgBuf[0] = byte(udpprotocol.UDP_BYE)
 	copy(msgBuf[1:], buf)
-	bindhelp.WriteCrc16(msgBuf)
+	udpprotocol.WriteCrc16(msgBuf)
 	pc.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	_, err = pc.WriteTo(msgBuf, raddr)
 	if err != nil {
@@ -330,16 +329,16 @@ func readBey(pc net.PacketConn, raddr net.Addr, timeout int) error {
 			continue
 		}
 
-		if protocol.UdpMsgID(rbuf[0]) != protocol.UDP_BYE {
+		if udpprotocol.UdpMsgID(rbuf[0]) != udpprotocol.UDP_BYE {
 			return errors.New("invalid box resp msg")
 		}
 
-		if !bindhelp.CheckCrc16(rbuf[:n]) {
+		if !udpprotocol.CheckCrc16(rbuf[:n]) {
 			loggermsg.Error("invalid crc16 signature")
 			return errors.New("invalid crc16 signature")
 		}
 
-		var msg protocol.UdpBye
+		var msg udpprotocol.UdpBye
 		err = proto.Unmarshal(rbuf[1:n-2], &msg)
 		if err != nil {
 			loggermsg.Error("protobuf unmarshal bye object fail. err:", err)
@@ -355,12 +354,12 @@ func sendKey(deviceid string, pc net.PacketConn, raddr net.Addr, key []byte) err
 	defer loggermsg.Debug("send key end")
 
 	s := sha256.Sum256([]byte(deviceid))
-	cipherKey, err := bindhelp.AES256Encrypt(s[:], key)
+	cipherKey, err := udpprotocol.AES256Encrypt(s[:], key)
 	if err != nil {
 		return err
 	}
 
-	var privatekey protocol.UdpPrivateKey
+	var privatekey udpprotocol.UdpPrivateKey
 	privatekey.Timestamp = uint64(time.Now().Unix())
 	privatekey.Key = cipherKey
 	m := md5.New()
@@ -375,9 +374,9 @@ func sendKey(deviceid string, pc net.PacketConn, raddr net.Addr, key []byte) err
 
 	msgBuflen := len(buf) + 3
 	msgBuf := make([]byte, msgBuflen)
-	msgBuf[0] = byte(protocol.UDP_PRIVATEKEY)
+	msgBuf[0] = byte(udpprotocol.UDP_PRIVATEKEY)
 	copy(msgBuf[1:], buf)
-	bindhelp.WriteCrc16(msgBuf)
+	udpprotocol.WriteCrc16(msgBuf)
 	pc.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	_, err = pc.WriteTo(msgBuf, raddr)
 	if err != nil {
@@ -388,18 +387,18 @@ func sendKey(deviceid string, pc net.PacketConn, raddr net.Addr, key []byte) err
 	return nil
 }
 
-func waitHello(pc net.PacketConn, buf []byte) (*protocol.UdpHello, net.Addr, error) {
+func waitHello(pc net.PacketConn, buf []byte) (*udpprotocol.UdpHello, net.Addr, error) {
 	for {
 		msgId, body, raddr, err := waitMsg(pc, buf)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		if msgId != protocol.UDP_HELLO {
+		if msgId != udpprotocol.UDP_HELLO {
 			continue
 		}
 
-		var msg protocol.UdpHello
+		var msg udpprotocol.UdpHello
 		err = proto.Unmarshal(body, &msg)
 		if err != nil {
 			continue
@@ -415,7 +414,7 @@ func waitHello(pc net.PacketConn, buf []byte) (*protocol.UdpHello, net.Addr, err
 	}
 }
 
-func waitMsg(pc net.PacketConn, buf []byte) (protocol.UdpMsgID, []byte, net.Addr, error) {
+func waitMsg(pc net.PacketConn, buf []byte) (udpprotocol.UdpMsgID, []byte, net.Addr, error) {
 	for {
 		loggermsg.Info("before read a udp msg")
 		pc.SetReadDeadline(time.Now().Add(time.Second * 2))
@@ -429,16 +428,16 @@ func waitMsg(pc net.PacketConn, buf []byte) (protocol.UdpMsgID, []byte, net.Addr
 			return 0, nil, nil, err
 		}
 
-		if !bindhelp.CheckCrc16(buf[:n]) {
+		if !udpprotocol.CheckCrc16(buf[:n]) {
 			loggermsg.Warn("crc16 verify fail")
 			continue
 		}
 
-		return protocol.UdpMsgID(buf[0]), buf[1 : n-2], raddr, nil
+		return udpprotocol.UdpMsgID(buf[0]), buf[1 : n-2], raddr, nil
 	}
 }
 
-func verifyHello(hello *protocol.UdpHello) bool {
+func verifyHello(hello *udpprotocol.UdpHello) bool {
 	m := md5.New()
 	m.Write([]byte(strconv.FormatInt(int64(hello.Timestamp), 10)))
 	m.Write([]byte(hello.ClientName))
@@ -446,7 +445,7 @@ func verifyHello(hello *protocol.UdpHello) bool {
 	return bytes.Compare(hello.Sign, m.Sum(nil)) == 0
 }
 
-func verifyNsdId(nasId *protocol.UdpNasId) bool {
+func verifyNsdId(nasId *udpprotocol.UdpNasId) bool {
 	m := md5.New()
 	m.Write([]byte(strconv.FormatInt(int64(nasId.Timestamp), 10)))
 	m.Write(nasId.Id)

@@ -11,9 +11,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/crypto"
-	"gitlab.dabank.io/nas/go-nas/common"
-	"gitlab.dabank.io/nas/go-nas/p2p/protocol"
-	"gitlab.dabank.io/nas/go-nas/saferw"
+	"gitlab.dabank.io/nas/go-msgbase/p2pprotocol"
+	"gitlab.dabank.io/nas/go-msgbase/saferw"
 	"gitlab.dabank.io/nas/p2p-network/communication"
 	"gitlab.dabank.io/nas/p2p-network/config"
 	"gitlab.dabank.io/nas/p2p-network/core"
@@ -191,11 +190,11 @@ func panicIfError(err error) {
 }
 
 func doLogin(rw *saferw.SafeRW) error {
-	var login protocol.AppLogin
+	var login p2pprotocol.AppLogin
 	login.Nonce = rand.Uint32()
 	login.Timestamp = uint64(time.Now().Unix())
 	login.Token = "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11"
-	sendMsg(protocol.APP_LOGIN, &login, rw)
+	sendMsg(p2pprotocol.APP_LOGIN, &login, rw)
 
 	loggermsg.Info("prepare read data")
 	readMsg(rw)
@@ -232,12 +231,12 @@ func readMsg(rw *saferw.SafeRW) {
 		loggermsg.Info("read msg loop, n:", n, ", rn:", rn)
 	}
 
-	dumpMsg(protocol.P2pMsgID(respCmd), rbuf[:respMsgLen-8])
+	dumpMsg(p2pprotocol.P2pMsgID(respCmd), rbuf[:respMsgLen-8])
 
 	var body interface{}
-	switch protocol.P2pMsgID(respCmd) {
-	case protocol.PREPARE_UPLOADFILE_RESP:
-		var preUploadResp protocol.PrepareUploadFileResp
+	switch p2pprotocol.P2pMsgID(respCmd) {
+	case p2pprotocol.PREPARE_UPLOADFILE_RESP:
+		var preUploadResp p2pprotocol.PrepareUploadFileResp
 		err := proto.Unmarshal(rbuf[:respMsgLen-8], &preUploadResp)
 		if err != nil {
 			loggermsg.Error("protobuf unmarshal PrepareUploadFileResp fail. err:", err)
@@ -246,8 +245,8 @@ func readMsg(rw *saferw.SafeRW) {
 
 		taskid = preUploadResp.TaskId
 		loggermsg.Info("upload task id:", taskid)
-	case protocol.UPLOADFILE_RESULT:
-		var uploadResult protocol.UploadFileResult
+	case p2pprotocol.UPLOADFILE_RESULT:
+		var uploadResult p2pprotocol.UploadFileResult
 		err := proto.Unmarshal(rbuf[:respMsgLen-8], &uploadResult)
 		if err != nil {
 			loggermsg.Error("protobuf unmarshal UploadFileResult fail. err:", err)
@@ -256,8 +255,8 @@ func readMsg(rw *saferw.SafeRW) {
 
 		loggermsg.Info("upload result:", uploadResult)
 
-	case protocol.BOX_LOGIN_RESP:
-		var loginResp protocol.BoxLoginResp
+	case p2pprotocol.BOX_LOGIN_RESP:
+		var loginResp p2pprotocol.BoxLoginResp
 		err := proto.Unmarshal(rbuf[:respMsgLen-8], &loginResp)
 		if err != nil {
 			loggermsg.Error("prorobuf unmarshal BoxLoginResp fail. err:", err)
@@ -266,8 +265,8 @@ func readMsg(rw *saferw.SafeRW) {
 
 		loggermsg.Info("box login result:", loginResp)
 
-	case protocol.PREPARE_BACKUPFILE_RESP:
-		var resp protocol.PrepareBackupFileResp
+	case p2pprotocol.PREPARE_BACKUPFILE_RESP:
+		var resp p2pprotocol.PrepareBackupFileResp
 		err := proto.Unmarshal(rbuf[:respMsgLen-8], &resp)
 		if err != nil {
 			loggermsg.Error("prorobuf unmarshal PrepareBackupFileResp fail. err:", err)
@@ -276,8 +275,8 @@ func readMsg(rw *saferw.SafeRW) {
 
 		taskid = resp.TaskId
 		loggermsg.Info("prepare backup result:", resp)
-	case protocol.PREPARE_RECOVERFILE_RESP:
-		var resp protocol.PrepareRecoverFileResp
+	case p2pprotocol.PREPARE_RECOVERFILE_RESP:
+		var resp p2pprotocol.PrepareRecoverFileResp
 		err := proto.Unmarshal(rbuf[:respMsgLen-8], &resp)
 		if err != nil {
 			loggermsg.Error("prorobuf unmarshal PrepareRecoverFileResp fail. err:", err)
@@ -285,11 +284,31 @@ func readMsg(rw *saferw.SafeRW) {
 		}
 
 		body = &resp
+	case p2pprotocol.GET_BOXSTATUS_RESP:
+		var resp p2pprotocol.GetStatusResp
+		err := proto.Unmarshal(rbuf[:respMsgLen-8], &resp)
+		if err != nil {
+			loggermsg.Error("prorobuf unmarshal GetStatusResp fail. err:", err)
+			return
+		}
+
+		body = &resp
+	case p2pprotocol.LIST_RECYCLE_RESP:
+
+		var resp p2pprotocol.ListRecycleResp
+		err := proto.Unmarshal(rbuf[:respMsgLen-8], &resp)
+		if err != nil {
+			loggermsg.Error("prorobuf unmarshal ListRecycleResp fail. err:", err)
+			return
+		}
+
+		body = &resp
 	}
+
 	loggermsg.Info("received one msg, ", "cmd:", respCmd, ", body:", body)
 }
 
-func sendMsg(cmd protocol.P2pMsgID, msg proto.Message, rw *saferw.SafeRW) error {
+func sendMsg(cmd p2pprotocol.P2pMsgID, msg proto.Message, rw *saferw.SafeRW) error {
 	body, err := proto.Marshal(msg)
 	if err != nil {
 		loggermsg.Error("protobuf marshal fail", ", cmd:", cmd, ", err:", err)
@@ -307,7 +326,7 @@ func sendMsg(cmd protocol.P2pMsgID, msg proto.Message, rw *saferw.SafeRW) error 
 
 	if n != len(head) {
 		loggermsg.Error("sent len doesn't match head len", ", n:", n)
-		return common.ErrSendMsgHeadFail
+		return p2pprotocol.ErrSendMsgHeadFail
 	}
 
 	loggermsg.Debug("sent head", ", n:", n)
@@ -333,7 +352,7 @@ func sendMsg(cmd protocol.P2pMsgID, msg proto.Message, rw *saferw.SafeRW) error 
 	return nil
 }
 
-func SerialHead(len uint32, cmd protocol.P2pMsgID, buf []byte) {
+func SerialHead(len uint32, cmd p2pprotocol.P2pMsgID, buf []byte) {
 	binary.BigEndian.PutUint32(buf, len)
 	binary.BigEndian.PutUint32(buf[4:], uint32(cmd))
 }
@@ -367,16 +386,16 @@ func getFileSize(path string) uint64 {
 	return uint64(fi.Size())
 }
 
-func dumpMsg(cmd protocol.P2pMsgID, body []byte) {
+func dumpMsg(cmd p2pprotocol.P2pMsgID, body []byte) {
 	switch cmd {
-	case protocol.APP_LOGIN_RESP:
-		var msg protocol.AppLoginResp
+	case p2pprotocol.APP_LOGIN_RESP:
+		var msg p2pprotocol.AppLoginResp
 		proto.Unmarshal(body, &msg)
 		fmt.Println("dump msg", "cmd", cmd, "body", msg)
 	}
 }
 
-func serialHead(len uint32, cmd protocol.P2pMsgID, buf []byte) {
+func serialHead(len uint32, cmd p2pprotocol.P2pMsgID, buf []byte) {
 	binary.BigEndian.PutUint32(buf, len)
 	binary.BigEndian.PutUint32(buf[4:], uint32(cmd))
 	logger.Info("#################head:", hex.EncodeToString(buf))
@@ -389,7 +408,7 @@ func parseMsgLenAndCmd(buf []byte) (len uint32, cmd uint32) {
 }
 
 func getLoginReq() []byte {
-	var msg protocol.AppLogin
+	var msg p2pprotocol.AppLogin
 	msg.Nonce = rand.Uint32()
 	msg.Timestamp = uint64(time.Now().Unix())
 	msg.Token = "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11"
@@ -399,13 +418,12 @@ func getLoginReq() []byte {
 }
 
 func doBoxLogin(rw *saferw.SafeRW) {
-	var login protocol.BoxLogin
+	var login p2pprotocol.BoxLogin
 	login.Nonce = rand.Uint32()
 	login.Timestamp = uint64(time.Now().Unix())
 	login.Token = ""
 
-	time.Sleep(time.Second)
-	err := sendMsg(protocol.BOX_LOGIN, &login, rw)
+	err := sendMsg(p2pprotocol.BOX_LOGIN, &login, rw)
 	if err != nil {
 		loggermsg.Error("send box login msg fail, err:", err)
 		return
@@ -414,10 +432,42 @@ func doBoxLogin(rw *saferw.SafeRW) {
 	readMsg(rw)
 }
 
+func doGetState(rw *saferw.SafeRW) {
+	var login p2pprotocol.GetStatus
+	login.Nonce = rand.Uint32()
+
+	err := sendMsg(p2pprotocol.GET_BOXSTATUS, &login, rw)
+	if err != nil {
+		loggermsg.Error("send get box status msg fail, err:", err)
+		return
+	}
+
+	readMsg(rw)
+}
+
+func doListRecycle(rw *saferw.SafeRW) {
+	var login p2pprotocol.ListRecycle
+	login.Nonce = rand.Uint32()
+
+	err := sendMsg(p2pprotocol.LIST_RECYCLE, &login, rw)
+	if err != nil {
+		loggermsg.Error("send list recycle msg fail, err:", err)
+		return
+	}
+
+	readMsg(rw)
+}
+
+
 func onConnect(rw *saferw.SafeRW) {
 	loggermsg.Info("############onConnect")
 	loggermsg.Info("working start~~~~~~~~~~~~")
 	//time.Sleep(time.Minute * 100)
+
+	//{
+	//	doLogin(rw)
+	//	doGetState(rw)
+	//}
 
 	//{
 	//	doLogin(rw)
@@ -445,10 +495,15 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doLogin(rw)
 	//
 	//	paths := make([]string, 2)
-	//	paths[0] = "/20201017-2/files/testdir4"
-	//	paths[1] = "/20201017-2/files/testdir5"
-	//	//doPutinRecycle(rw, paths)
-	//	doDredgeOutRecycle(rw, paths)
+	//	paths[0] = "/20201024/lzh1/go.mod"
+	//	paths[1] = "/20201024/lzh1/data/app1"
+	//	doPutinRecycle(rw, paths)
+	//	//doDredgeOutRecycle(rw, paths)
+	//}
+
+	//{
+	//	doLogin(rw)
+	//	doListRecycle(rw)
 	//}
 
 	//{
@@ -471,7 +526,7 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	{
-		remoteDir := "/20201024/lzh2/"
+		remoteDir := "/20201027/lzh1/"
 		doLogin(rw)
 		doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
 		doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
