@@ -303,6 +303,16 @@ func readMsg(rw *saferw.SafeRW) {
 		}
 
 		body = &resp
+	case p2pprotocol.SPACE_SETTING_RESP:
+
+		var resp p2pprotocol.SpaceSettingResp
+		err := proto.Unmarshal(rbuf[:respMsgLen-8], &resp)
+		if err != nil {
+			loggermsg.Error("prorobuf unmarshal SpaceSettingResp fail. err:", err)
+			return
+		}
+
+		body = &resp
 	}
 
 	loggermsg.Info("received one msg, ", "cmd:", respCmd, ", body:", body)
@@ -458,6 +468,19 @@ func doListRecycle(rw *saferw.SafeRW) {
 	readMsg(rw)
 }
 
+func doSpaceSetting(rw *saferw.SafeRW) {
+	var setting p2pprotocol.SpaceSetting
+	setting.Nonce = rand.Uint32()
+	setting.ReservedSpace = 1024*1024*1024
+	setting.SharedSpace = 296092692480 - setting.ReservedSpace
+	err := sendMsg(p2pprotocol.SPACE_SETTING, &setting, rw)
+	if err != nil {
+		loggermsg.Error("send space setting fail. err:", err)
+		return
+	}
+
+	readMsg(rw)
+}
 
 func onConnect(rw *saferw.SafeRW) {
 	loggermsg.Info("############onConnect")
@@ -468,6 +491,11 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doLogin(rw)
 	//	doGetState(rw)
 	//}
+
+	{
+		doLogin(rw)
+		doSpaceSetting(rw)
+	}
 
 	//{
 	//	doLogin(rw)
@@ -525,18 +553,18 @@ func onConnect(rw *saferw.SafeRW) {
 	//	//doDeleteFiles(rw, filePaths)
 	//}
 
-	{
-		remoteDir := "/20201027/lzh1/"
-		doLogin(rw)
-		doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
-		doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
-		doUploadFile(rw, "data/app1", remoteDir)
-		doUploadFile(rw, "go.mod", remoteDir)
-		doUploadFile(rw, "go.sum", remoteDir)
-		doUploadFile(rw, "main.go", remoteDir)
-		doUploadFile(rw, "Makefile", remoteDir)
-		doUploadFile(rw, "private.key", remoteDir)
-	}
+	//{
+	//	remoteDir := "/20201027/lzh1/"
+	//	doLogin(rw)
+	//	doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
+	//	doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
+	//	doUploadFile(rw, "data/app1", remoteDir)
+	//	doUploadFile(rw, "go.mod", remoteDir)
+	//	doUploadFile(rw, "go.sum", remoteDir)
+	//	doUploadFile(rw, "main.go", remoteDir)
+	//	doUploadFile(rw, "Makefile", remoteDir)
+	//	doUploadFile(rw, "private.key", remoteDir)
+	//}
 
 	//{
 	//	remoteDir := "/20201023/test3/"
