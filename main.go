@@ -313,6 +313,16 @@ func readMsg(rw *saferw.SafeRW) {
 		}
 
 		body = &resp
+	//case p2pprotocol.UPLOADFILE_THUMBNAIL:
+	//
+	//	var resp p2pprotocol.SpaceSettingResp
+	//	err := proto.Unmarshal(rbuf[:respMsgLen-8], &resp)
+	//	if err != nil {
+	//		loggermsg.Error("prorobuf unmarshal SpaceSettingResp fail. err:", err)
+	//		return
+	//	}
+	//
+	//	body = &resp
 	}
 
 	loggermsg.Info("received one msg, ", "cmd:", respCmd, ", body:", body)
@@ -471,7 +481,7 @@ func doListRecycle(rw *saferw.SafeRW) {
 func doSpaceSetting(rw *saferw.SafeRW) {
 	var setting p2pprotocol.SpaceSetting
 	setting.Nonce = rand.Uint32()
-	setting.ReservedSpace = 1024*1024*1024
+	setting.ReservedSpace = 1024*1024*1024*10
 	setting.SharedSpace = 296092692480 - setting.ReservedSpace
 	err := sendMsg(p2pprotocol.SPACE_SETTING, &setting, rw)
 	if err != nil {
@@ -492,10 +502,12 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doGetState(rw)
 	//}
 
-	{
-		doLogin(rw)
-		doSpaceSetting(rw)
-	}
+	//{
+	//	doLogin(rw)
+	//	doGetState(rw)
+	//	doSpaceSetting(rw)
+	//	doGetState(rw)
+	//}
 
 	//{
 	//	doLogin(rw)
@@ -554,7 +566,7 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	//{
-	//	remoteDir := "/20201027/lzh1/"
+	//	remoteDir := "/20201028/lzh1/"
 	//	doLogin(rw)
 	//	doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
 	//	doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
@@ -565,6 +577,19 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doUploadFile(rw, "Makefile", remoteDir)
 	//	doUploadFile(rw, "private.key", remoteDir)
 	//}
+
+	//{
+	//	remoteDir := "/20201028/lzh1/"
+	//	doLogin(rw)
+	//	doUploadThumbnail(rw, "data/app1", "data/thumbnail", remoteDir)
+	//}
+
+	{
+		remoteDir := "/20201028/lzh1/"
+		doLogin(rw)
+		doDownloadThumbnail(rw, remoteDir+"data/app1", "./dld2/20201028-1.dld")
+	}
+
 
 	//{
 	//	remoteDir := "/20201023/test3/"
