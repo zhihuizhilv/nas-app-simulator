@@ -24,8 +24,8 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 	prepareUpload.Path = dir + "/" + filename
 	prepareUpload.Size = fileSize
 	prepareUpload.Hash = getFileHash(filePath)
-	prepareUpload.Encrypt = 1
-	prepareUpload.BackupNum = 0
+	prepareUpload.Encrypt = 0
+	prepareUpload.BackupNum = 1
 
 	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE")
 	err := sendMsg(p2pprotocol.PREPARE_UPLOADFILE, &prepareUpload, rw)

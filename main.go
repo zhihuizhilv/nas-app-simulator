@@ -518,13 +518,14 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doCreateDir(rw, "/20201021/files/testdir5")
 	//}
 
-	//{
-	//	doLogin(rw)
-	//	//doExplorDir(rw, "/")
-	//	//doExplorDir(rw, "/20201017-2")
-	//	//doExplorDir(rw, "/20201017-2/")
-	//	doExplorDir(rw, "/20201017-2/files/")
-	//}
+	{
+		doLogin(rw)
+		//doExplorDir(rw, "/")
+		//doExplorDir(rw, "/20201017-2")
+		//doExplorDir(rw, "/20201017-2/")
+		doExplorDir(rw, "/20201102/lzh1/")
+		doExplorDir(rw, "/20201102/lzh1/data")
+	}
 
 	//{
 	//	doLogin(rw)
@@ -566,7 +567,7 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	//{
-	//	remoteDir := "/20201028/lzh1/"
+	//	remoteDir := "/20201102/lzh1/"
 	//	doLogin(rw)
 	//	doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
 	//	doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
@@ -584,11 +585,11 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doUploadThumbnail(rw, "data/app1", "data/thumbnail", remoteDir)
 	//}
 
-	{
-		remoteDir := "/20201028/lzh1/"
-		doLogin(rw)
-		doDownloadThumbnail(rw, remoteDir+"data/app1", "./dld2/20201028-1.dld")
-	}
+	//{
+	//	remoteDir := "/20201028/lzh1/"
+	//	doLogin(rw)
+	//	doDownloadThumbnail(rw, remoteDir+"data/app1", "./dld2/20201028-1.dld")
+	//}
 
 
 	//{
