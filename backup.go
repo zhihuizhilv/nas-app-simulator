@@ -51,6 +51,7 @@ func doBackUpFile(rw *saferw.SafeRW, name string) {
 
 	loggermsg.Info("fileSize:", fileSize, ", frameSize:", frameSize, ", frameNum:", frameNum)
 	var i uint32
+	var offset uint64
 	buf := make([]byte, frameSize)
 	for {
 		n, _ := f.Read(buf)
@@ -62,13 +63,14 @@ func doBackUpFile(rw *saferw.SafeRW, name string) {
 		frame.TaskId = taskid
 		frame.FrameNum = uint32(frameNum)
 		frame.FrameId = i
-		frame.FrameSize = uint32(n)
+		frame.Offset = offset
 		frame.FrameHash = getDataHash(buf[:n])
 		frame.Data = buf[:n]
 		sendMsg(p2pprotocol.BACKUPFILE_FRAME, &frame, rw)
 		loggermsg.Info("sent frame. frame id:", i, ", len:", n)
 
 		i++
+		offset += uint64(n)
 	}
 
 	loggermsg.Info("sent frames finish")
@@ -207,4 +209,35 @@ func doRecover(rw *saferw.SafeRW, hashStr string) {
 			return
 		}
 	}
+}
+
+func doChallange(rw *saferw.SafeRW) {
+	var req p2pprotocol.StorageChallenge
+	req.Nonce = rand.Uint32()
+	req.Timestamp = uint64(time.Now().Unix())
+	req.BbcAddr = "1dj09mvxt72x70bnqnpt25xf69hgfz1d5n40tjn1gv1w6dts8ds8tm9bj"
+	req.Name = "42c24694-9cab-41df-87e9-3bfb8a9cd368"
+	req.Position = rand.Uint64()%31061700
+
+	sendMsg(p2pprotocol.STORAGE_CHALLENGE, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.STORAGE_CHALLENGE_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.STORAGE_CHALLENGE_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.StorageChallengeResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal StorageChallengeResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("StorageChallengeResp:", resp)
 }

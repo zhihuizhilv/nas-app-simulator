@@ -7,6 +7,37 @@ import (
 	"math/rand"
 )
 
+
+func doAppendBackupTerm(rw *SafeRW, path string, term uint64) {
+	var req p2pprotocol.AppendBackupTerm
+	req.Nonce = rand.Uint32()
+	req.Path = path
+	req.BackupTerm = term
+
+	sendMsg(p2pprotocol.APPEND_BACKUPTERM, &req, rw)
+
+	body := make([]byte, 1024*256)
+	msgLen, msgId, body, err := p2pprotocol.ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read one msg fail. err:", err)
+		return
+	}
+
+	if msgId != uint32(p2pprotocol.APPEND_BACKUPTERM_RESP) {
+		loggermsg.Error("resp msg id invalid, msgid:", msgId)
+		return
+	}
+
+	var resp p2pprotocol.AppendBackupTermResp
+	err = proto.Unmarshal(body[:msgLen-8], &resp)
+	if err != nil {
+		loggermsg.Error("protobuf unmarshal AppendBackupTermResp fail. err:", err)
+		return
+	}
+
+	loggermsg.Info("append backup term resp suc, resp:", resp)
+}
+
 func doExplorDir(rw *SafeRW, dir string) {
 	var req p2pprotocol.ExplorDir
 	req.Nonce = rand.Uint32()
@@ -181,3 +212,35 @@ func doDredgeOutRecycle(rw *SafeRW, paths []string) {
 
 	loggermsg.Info("dredge out recycle resp, resp:", resp)
 }
+
+
+func doGetFileInfo(rw *SafeRW, path string) {
+	loggermsg.Info("doGetFileInfo. path:", path)
+
+	var req p2pprotocol.GetFile
+	req.Nonce = rand.Uint32()
+	req.Path = path
+
+	sendMsg(p2pprotocol.GET_FILE, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.GET_FILE_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.GET_FILE_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.GetFileResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal GetFileResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("GetFileResp:", resp)
+}
+

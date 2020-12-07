@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -41,6 +42,7 @@ var (
 	udpServer *bool
 
 	taskid string
+	MAXMSGLEN = 1024 * 1024 * 2
 )
 
 func init() {
@@ -68,7 +70,7 @@ func startP2p() {
 		return
 	}
 
-	mockRouting := !core.IsBlankString(args.id) && !core.IsBlankString(args.ip) && args.port > 0
+	//mockRouting := !core.IsBlankString(args.id) && !core.IsBlankString(args.ip) && args.port > 0
 
 	dir, err := os.Getwd()
 	panicIfError(err)
@@ -99,24 +101,36 @@ func startP2p() {
 			},
 		},
 	}
+	//bootstrapPeers := []communication.PeerInfo{
+	//	{
+	//		"12D3KooWNbhT78jpWBUvKuyEVJJhkwSDkMgfa187YD6ijepkQWg3",
+	//		[]communication.EndPoint{
+	//			{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25557"},
+	//		},
+	//	},
+	//}
 	cnfBuilder.KadRouting(bootstrapPeers...)
 
 	var cnf config.HostConfig
-	cnf = cnfBuilder.BuildPeer()
+	//cnf = cnfBuilder.BuildPeer()
+	cnf = cnfBuilder.BuildClient()
+	fmt.Println("create client host config. cnf:", cnf)
 
 	host, err := hosting.NewPeer(context.Background(), cnf)
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~create peer suc")
+
 	<-host.Start()
 	state, _ := host.GetState()
 	logger.Info("----------host, peerid:", state.Id, ", address:", state.Addresses)
 	loopDial(host, args)
 
-	if mockRouting {
-		logger.Info("Start Done")
-	}
+	//if mockRouting {
+	//	logger.Info("Start Done")
+	//}
 
 	select {}
 }
@@ -201,6 +215,39 @@ func doLogin(rw *saferw.SafeRW) error {
 	return nil
 }
 
+func ReadOneMsg(rw *saferw.SafeRW, body []byte) (uint32, uint32, []byte, error) {
+	var msgHead [8]byte
+	n, err := rw.Read(msgHead[:])
+	if err != nil {
+		return 0, 0, body, err
+	}
+
+	if n != len(msgHead) {
+		return 0, 0, body, errors.New("read msg head fail")
+	}
+
+	msgLen, msgCmd := parseMsgLenAndCmd(msgHead[:])
+	if msgLen > uint32(MAXMSGLEN) {
+		return 0, 0, body, errors.New("invalid msg len")
+	}
+
+	if msgLen > uint32(len(body)) {
+		body = make([]byte, msgLen)
+	}
+
+	bodyLen := 0
+	for uint32(bodyLen) < msgLen-8 {
+		n, err := rw.Read(body[bodyLen:])
+		if err != nil {
+			return 0, 0, body, err
+		}
+
+		bodyLen += n
+	}
+
+	return msgLen, msgCmd, body, nil
+}
+
 func readMsg(rw *saferw.SafeRW) {
 	head := make([]byte, 8)
 	rbuf := make([]byte, 1024*1024)
@@ -244,7 +291,7 @@ func readMsg(rw *saferw.SafeRW) {
 		}
 
 		taskid = preUploadResp.TaskId
-		loggermsg.Info("upload task id:", taskid)
+		loggermsg.Info("prepare upload resp:", preUploadResp)
 	case p2pprotocol.UPLOADFILE_RESULT:
 		var uploadResult p2pprotocol.UploadFileResult
 		err := proto.Unmarshal(rbuf[:respMsgLen-8], &uploadResult)
@@ -402,7 +449,11 @@ func getDataHash(data []byte) []byte {
 }
 
 func getFileSize(path string) uint64 {
-	fi, _ := os.Stat(path)
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+
 	return uint64(fi.Size())
 }
 
@@ -511,21 +562,32 @@ func onConnect(rw *saferw.SafeRW) {
 
 	//{
 	//	doLogin(rw)
-	//	doCreateDir(rw, "/20201021/files/testdir1")
-	//	doCreateDir(rw, "/20201021/files/testdir2")
-	//	doCreateDir(rw, "/20201021/files/testdir3")
-	//	doCreateDir(rw, "/20201021/files/testdir4")
-	//	doCreateDir(rw, "/20201021/files/testdir5")
+	//	doCreateDir(rw, "/20201113/lzh1/testdir1")
+	//	doCreateDir(rw, "/20201113/lzh1/testdir2")
+	//	doCreateDir(rw, "/20201113/lzh1/testdir3")
+	//	doCreateDir(rw, "/20201113/lzh1/testdir4")
+	//	doCreateDir(rw, "/20201113/lzh1/testdir5")
 	//}
 
-	{
-		doLogin(rw)
-		//doExplorDir(rw, "/")
-		//doExplorDir(rw, "/20201017-2")
-		//doExplorDir(rw, "/20201017-2/")
-		doExplorDir(rw, "/20201102/lzh1/")
-		doExplorDir(rw, "/20201102/lzh1/data")
-	}
+	//{
+	//	doLogin(rw)
+	//	doAppendBackupTerm(rw, "/20201123/lzh1", 100000)
+	//	//doExplorDir(rw, "/20201017-2")
+	//	//doExplorDir(rw, "/20201017-2/")
+	//	//doExplorDir(rw, "/20201103/lzh1/")
+	//	//doExplorDir(rw, "/20201102/lzh1/data")
+	//}
+
+	//{
+	//	//doLogin(rw)
+	//	//doExplorDir(rw, "/20201123/lzh1")
+	//	//doExplorDir(rw, "/20201017-2")
+	//	//doExplorDir(rw, "/20201017-2/")
+	//	//doExplorDir(rw, "/20201103/lzh1/")
+	//	//doExplorDir(rw, "/20201102/lzh1/data")
+	//}
+
+
 
 	//{
 	//	doLogin(rw)
@@ -536,12 +598,11 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doLogin(rw)
 	//
 	//	paths := make([]string, 2)
-	//	paths[0] = "/20201024/lzh1/go.mod"
-	//	paths[1] = "/20201024/lzh1/data/app1"
+	//	paths[0] = "/20201103/lzh1/private.key"
 	//	doPutinRecycle(rw, paths)
 	//	//doDredgeOutRecycle(rw, paths)
 	//}
-
+	//
 	//{
 	//	doLogin(rw)
 	//	doListRecycle(rw)
@@ -567,17 +628,26 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	//{
-	//	remoteDir := "/20201102/lzh1/"
+	//	remoteDir := "/20201207/lzh1"
 	//	doLogin(rw)
-	//	doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
-	//	doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
-	//	doUploadFile(rw, "data/app1", remoteDir)
-	//	doUploadFile(rw, "go.mod", remoteDir)
-	//	doUploadFile(rw, "go.sum", remoteDir)
-	//	doUploadFile(rw, "main.go", remoteDir)
-	//	doUploadFile(rw, "Makefile", remoteDir)
-	//	doUploadFile(rw, "private.key", remoteDir)
+	//	//doUploadFileHalf(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
+	//	//doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
+	//	//doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
+	//	//doUploadFile(rw, "data/app1", remoteDir)
+	//	//doUploadFile(rw, "go.mod", remoteDir)
+	//	//doUploadFile(rw, "go.sum", remoteDir)
+	//	//doUploadFile(rw, "main.go", remoteDir)
+	//	doUploadFile(rw, "app_dld1", remoteDir)
+	//	doUploadFile(rw, "app_dld2", remoteDir)
 	//}
+
+
+	//{
+	//	remoteDir := "/20201104/lzh2/"
+	//	doLogin(rw)
+	//	doUploadFileHalf(rw, "data/app1", remoteDir)
+	//}
+
 
 	//{
 	//	remoteDir := "/20201028/lzh1/"
@@ -593,21 +663,26 @@ func onConnect(rw *saferw.SafeRW) {
 
 
 	//{
-	//	remoteDir := "/20201023/test3/"
+	//	remoteDir := "/20201104/lzh3/"
 	//	doLogin(rw)
-	//	doDownloadFile(rw, remoteDir+"data/lotus_v0.1.0_linux-amd64.tar.gz", "./dld2/20201023-1.dld")
-	//	doDownloadFile(rw, remoteDir+"data/lws-iot-sdk-master.zip", "./dld2/20201023-2.dld")
-	//	doDownloadFile(rw, remoteDir+"data/app1", "./dld2/20201023-3.dld")
-	//	doDownloadFile(rw, remoteDir+"go.mod", "./dld2/20201023-4.dld")
-	//	doDownloadFile(rw, remoteDir+"go.sum", "./dld2/20201023-5.dld")
-	//	doDownloadFile(rw, remoteDir+"main.go", "./dld2/20201023-6.dld")
-	//	doDownloadFile(rw, remoteDir+"Makefile", "./dld2/20201023-7.dld")
-	//	doDownloadFile(rw, remoteDir+"private.key", "./dld2/20201023-8.dld")
+	//	doDownloadFile(rw, remoteDir+"data/lotus_v0.1.0_linux-amd64.tar.gz", "./dld2/20201104-1.dld")
+	//	//doDownloadFile(rw, remoteDir+"data/lws-iot-sdk-master.zip", "./dld2/20201023-2.dld")
+	//	//doDownloadFile(rw, remoteDir+"data/app1", "./dld2/20201023-3.dld")
+	//	//doDownloadFile(rw, remoteDir+"go.mod", "./dld2/20201023-4.dld")
+	//	//doDownloadFile(rw, remoteDir+"go.sum", "./dld2/20201023-5.dld")
+	//	//doDownloadFile(rw, remoteDir+"main.go", "./dld2/20201023-6.dld")
+	//	//doDownloadFile(rw, remoteDir+"Makefile", "./dld2/20201023-7.dld")
+	//	//doDownloadFile(rw, remoteDir+"private.key", "./dld2/20201023-8.dld")
 	//}
 
 	//{
 	//	doBoxLogin(rw)
 	//	doBackUpFile(rw, "./lotus_v0.1.0_linux-amd64.tar.gz")
+	//}
+
+	//{
+	//	doBoxLogin(rw)
+	//	doChallange(rw)
 	//}
 
 	//{
@@ -619,6 +694,22 @@ func onConnect(rw *saferw.SafeRW) {
 	//	doLogin(rw)
 	//	doReset(rw)
 	//}
+
+	//{
+	//	doLogin(rw)
+	//	doGetLifeCycle(rw)
+	//	for {
+	//		doGetRecoverProgress(rw)
+	//		time.Sleep(time.Second*2)
+	//	}
+	//}
+
+	{
+		doLogin(rw)
+		doGetFileInfo(rw, "/20201207")
+		doGetFileInfo(rw, "/app-release.apkqqq")
+	}
+
 
 	loggermsg.Info("working done~~~~~~~~~~~~")
 }
