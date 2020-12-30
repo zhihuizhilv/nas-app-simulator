@@ -9,7 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"gitlab.dabank.io/nas/go-msgbase/p2pprotocol"
 	"gitlab.dabank.io/nas/go-msgbase/udpprotocol"
+	. "gitlab.dabank.io/nas/go-msgbase/saferw"
+	"math/rand"
 	"net"
 	"os"
 	"sort"
@@ -29,6 +32,126 @@ var (
 	LISTEN_HELLO_ADDR = ":52030"
 	COMMUNICATE_ADDR  = ":52031"
 )
+
+func doOpenBinding(rw *SafeRW) {
+	loggermsg.Info("doOpenBinding")
+
+	var req p2pprotocol.OpenBinding
+	req.Nonce = rand.Uint32()
+
+	sendMsg(p2pprotocol.OPEN_BINDING, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.OPEN_BINDING_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.OPEN_BINDING_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.OpenBindingResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal OpenBindingResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("OpenBindingResp:", resp)
+}
+
+
+func doCloseBinding(rw *SafeRW) {
+	loggermsg.Info("doCloseBinding")
+
+	var req p2pprotocol.CloseBinding
+	req.Nonce = rand.Uint32()
+
+	sendMsg(p2pprotocol.CLOSE_BINDING, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.CLOSE_BINDING_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.CLOSE_BINDING_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.CloseBindingResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal CloseBindingResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("CloseBindingResp:", resp)
+}
+
+func getApplyUsers(rw *SafeRW) {
+	loggermsg.Info("getApplyUsers")
+
+	var req p2pprotocol.GetApplyUsers
+	req.Nonce = rand.Uint32()
+
+	sendMsg(p2pprotocol.GET_APPLYUSERS, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.GET_APPLYUSERS_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.GET_APPLYUSERS_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.GetApplyUsersResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal GetApplyUsersResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("GetApplyUsersResp:", resp)
+}
+
+
+func approvalApply(rw *SafeRW, addr string, pass uint32) {
+	loggermsg.Info("approvalApply")
+
+	var req p2pprotocol.ApprovalApply
+	req.Nonce = rand.Uint32()
+	req.BbcAddr = addr
+	req.Pass = pass
+
+	sendMsg(p2pprotocol.APPROVAL_APPLY, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.APPROVAL_APPLY_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.APPROVAL_APPLY_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.ApprovalApplyResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal ApprovalApplyResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("ApprovalApplyResp:", resp)
+}
 
 func bind() {
 	var bind Binding
@@ -211,7 +334,7 @@ func (b *Binding) startListen(pc net.PacketConn) {
 		}
 
 		b.mux.Lock()
-		b.devices[hello.DeviceId] = raddr
+		b.devices[hello.PeerId] = raddr
 		b.mux.Unlock()
 	}
 }
@@ -250,37 +373,9 @@ func bindProcess(deviceid string, pc net.PacketConn, raddr net.Addr, key []byte,
 			return "", errors.New("invalid crc16 signature")
 		}
 
-		id, err := parseNasId(deviceid, rbuf[1:n-2])
-		if err != nil {
-			return "", err
-		}
-
-		return id, nil
+		return "", nil
 	}
 
-}
-
-func parseNasId(deviceid string, data []byte) (string, error) {
-	var resp udpprotocol.UdpNasId
-	err := proto.Unmarshal(data, &resp)
-	if err != nil {
-		loggermsg.Error("protobuf unmarshal UdpNasId fail. err:", err)
-		return "", err
-	}
-
-	if !verifyNsdId(&resp) {
-		loggermsg.Error("verify NasId fail")
-		return "", errors.New("verify NasId fail")
-	}
-
-	s := sha256.Sum256([]byte(deviceid))
-	id, err := udpprotocol.AES256Decrypt(s[:], resp.Id)
-	if err != nil {
-		return "", err
-	}
-
-	loggermsg.Info("get nas id:", id)
-	return string(id), nil
 }
 
 func sendBey(pc net.PacketConn, raddr net.Addr) error {
@@ -409,7 +504,7 @@ func waitHello(pc net.PacketConn, buf []byte) (*udpprotocol.UdpHello, net.Addr, 
 			continue
 		}
 
-		loggermsg.Info("get a hello msg, deviceid:", msg.DeviceId)
+		loggermsg.Info("get a hello msg, PeerId:", msg.PeerId)
 		return &msg, raddr, nil
 	}
 }
@@ -441,15 +536,8 @@ func verifyHello(hello *udpprotocol.UdpHello) bool {
 	m := md5.New()
 	m.Write([]byte(strconv.FormatInt(int64(hello.Timestamp), 10)))
 	m.Write([]byte(hello.ClientName))
-	m.Write([]byte(hello.DeviceId))
+	m.Write([]byte(hello.PeerId))
 	return bytes.Compare(hello.Sign, m.Sum(nil)) == 0
-}
-
-func verifyNsdId(nasId *udpprotocol.UdpNasId) bool {
-	m := md5.New()
-	m.Write([]byte(strconv.FormatInt(int64(nasId.Timestamp), 10)))
-	m.Write(nasId.Id)
-	return bytes.Compare(nasId.Sign, m.Sum(nil)) == 0
 }
 
 func startUDPClient() {

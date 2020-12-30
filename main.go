@@ -93,27 +93,27 @@ func startP2p() {
 	cnfBuilder := config.Builder().Logger(logger).Port(args.hostPort).PrivateKey(fullPath)
 	cnfBuilder.Advertise(time.Second*10, time.Second*20)
 
-	bootstrapPeers := []communication.PeerInfo{
-		{
-			"12D3KooWHGwQULtBt3VzbKFYvk5zHS24gZ4CYWgYzRgUJeVHkpo8",
-			[]communication.EndPoint{
-				{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25556"},
-			},
-		},
-	}
 	//bootstrapPeers := []communication.PeerInfo{
 	//	{
-	//		"12D3KooWNbhT78jpWBUvKuyEVJJhkwSDkMgfa187YD6ijepkQWg3",
+	//		"12D3KooWHGwQULtBt3VzbKFYvk5zHS24gZ4CYWgYzRgUJeVHkpo8",
 	//		[]communication.EndPoint{
-	//			{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25557"},
+	//			{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25556"},
 	//		},
 	//	},
 	//}
+	bootstrapPeers := []communication.PeerInfo{
+		{
+			"12D3KooWNbhT78jpWBUvKuyEVJJhkwSDkMgfa187YD6ijepkQWg3",
+			[]communication.EndPoint{
+				{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25557"},
+			},
+		},
+	}
 	cnfBuilder.KadRouting(bootstrapPeers...)
 
 	var cnf config.HostConfig
-	//cnf = cnfBuilder.BuildPeer()
-	cnf = cnfBuilder.BuildClient()
+	cnf = cnfBuilder.BuildPeer()
+	//cnf = cnfBuilder.BuildClient()
 	fmt.Println("create client host config. cnf:", cnf)
 
 	host, err := hosting.NewPeer(context.Background(), cnf)
@@ -571,7 +571,7 @@ func onConnect(rw *saferw.SafeRW) {
 
 	//{
 	//	doLogin(rw)
-	//	doAppendBackupTerm(rw, "/20201123/lzh1", 100000)
+	//	doAppendBackupTerm(rw, "/20201216/lzh1/app_dld1", 100000)
 	//	//doExplorDir(rw, "/20201017-2")
 	//	//doExplorDir(rw, "/20201017-2/")
 	//	//doExplorDir(rw, "/20201103/lzh1/")
@@ -628,7 +628,7 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	//{
-	//	remoteDir := "/20201207/lzh1"
+	//	remoteDir := "/20201223/lzh1"
 	//	doLogin(rw)
 	//	//doUploadFileHalf(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
 	//	//doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
@@ -638,7 +638,7 @@ func onConnect(rw *saferw.SafeRW) {
 	//	//doUploadFile(rw, "go.sum", remoteDir)
 	//	//doUploadFile(rw, "main.go", remoteDir)
 	//	doUploadFile(rw, "app_dld1", remoteDir)
-	//	doUploadFile(rw, "app_dld2", remoteDir)
+	//	//doUploadFile(rw, "app_dld2", remoteDir)
 	//}
 
 
@@ -704,12 +704,32 @@ func onConnect(rw *saferw.SafeRW) {
 	//	}
 	//}
 
+	//{
+	//	doLogin(rw)
+	//	doGetFileInfo(rw, "/20201207")
+	//	doGetFileInfo(rw, "/app-release.apkqqq")
+	//}
+
+	//{
+	//	doLogin(rw)
+	//	doOpenBinding(rw)
+	//}
+
+	//{
+	//	doLogin(rw)
+	//	doCloseBinding(rw)
+	//}
+
+	//{
+	//	doLogin(rw)
+	//	getApplyUsers(rw)
+	//}
+
 	{
 		doLogin(rw)
-		doGetFileInfo(rw, "/20201207")
-		doGetFileInfo(rw, "/app-release.apkqqq")
+		approvalApply(rw, "1bd22f27t2dexf4m8bs1qhr5jepgpmqv6g26cfyqmy56a21zcgf3v446e", 0)
+		approvalApply(rw, "1cgnbb0ejt9hvrzqxc9wfc1nfqctqcm3t0hje5mc678svvg4pec9ys8z2", 1)
 	}
-
 
 	loggermsg.Info("working done~~~~~~~~~~~~")
 }
