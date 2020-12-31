@@ -725,10 +725,14 @@ func onConnect(rw *saferw.SafeRW) {
 	//	getApplyUsers(rw)
 	//}
 
+	//{
+	//	doLogin(rw)
+	//	approvalApply(rw, "14fzqramdntchdt8qz6ka93ehprjryeb7nf2cj9hp5x03dtknr5skdjka", 1, "son")
+	//}
+
 	{
 		doLogin(rw)
-		approvalApply(rw, "1bd22f27t2dexf4m8bs1qhr5jepgpmqv6g26cfyqmy56a21zcgf3v446e", 0)
-		approvalApply(rw, "1cgnbb0ejt9hvrzqxc9wfc1nfqctqcm3t0hje5mc678svvg4pec9ys8z2", 1)
+		getShareUsers(rw)
 	}
 
 	loggermsg.Info("working done~~~~~~~~~~~~")

@@ -122,13 +122,14 @@ func getApplyUsers(rw *SafeRW) {
 }
 
 
-func approvalApply(rw *SafeRW, addr string, pass uint32) {
+func approvalApply(rw *SafeRW, addr string, pass uint32, nickname string) {
 	loggermsg.Info("approvalApply")
 
 	var req p2pprotocol.ApprovalApply
 	req.Nonce = rand.Uint32()
 	req.BbcAddr = addr
 	req.Pass = pass
+	req.Nickname = nickname
 
 	sendMsg(p2pprotocol.APPROVAL_APPLY, &req, rw)
 
@@ -152,6 +153,35 @@ func approvalApply(rw *SafeRW, addr string, pass uint32) {
 
 	loggermsg.Info("ApprovalApplyResp:", resp)
 }
+
+func getShareUsers(rw *SafeRW) {
+	loggermsg.Info("getShareUsers")
+
+	var req p2pprotocol.GetShareUsers
+	req.Nonce = rand.Uint32()
+	sendMsg(p2pprotocol.GET_SHAREUSERS, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.GET_SHAREUSERS_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.GET_SHAREUSERS_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.GetShareUsersResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal GetShareUsersResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("GetShareUsersResp:", resp)
+}
+
 
 func bind() {
 	var bind Binding
