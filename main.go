@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"gitlab.dabank.io/nas/app-simulator/bbcsign"
 	"gitlab.dabank.io/nas/go-msgbase/p2pprotocol"
 	"gitlab.dabank.io/nas/go-msgbase/saferw"
 	"gitlab.dabank.io/nas/p2p-network/communication"
@@ -203,11 +204,22 @@ func panicIfError(err error) {
 	}
 }
 
+func GetAppLoginSignData(login *p2pprotocol.AppLogin) []byte {
+	data := fmt.Sprintf("%d%d%s", login.Nonce, login.Timestamp, login.BbcAddr)
+	return []byte(data)
+}
+
+
 func doLogin(rw *saferw.SafeRW) error {
 	var login p2pprotocol.AppLogin
 	login.Nonce = rand.Uint32()
 	login.Timestamp = uint64(time.Now().Unix())
-	login.Token = "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11"
+	login.BbcAddr = BbcAddr
+
+	signData := GetAppLoginSignData(&login)
+	signBuf := bbcsign.Ed25519Sign(BbcKey, signData)
+	signBuf[0] += 1
+	login.Sign = hex.EncodeToString(signBuf)
 	sendMsg(p2pprotocol.APP_LOGIN, &login, rw)
 
 	loggermsg.Info("prepare read data")
@@ -478,16 +490,6 @@ func parseMsgLenAndCmd(buf []byte) (len uint32, cmd uint32) {
 	return
 }
 
-func getLoginReq() []byte {
-	var msg p2pprotocol.AppLogin
-	msg.Nonce = rand.Uint32()
-	msg.Timestamp = uint64(time.Now().Unix())
-	msg.Token = "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff11"
-
-	data, _ := proto.Marshal(&msg)
-	return data
-}
-
 func doBoxLogin(rw *saferw.SafeRW) {
 	var login p2pprotocol.BoxLogin
 	login.Nonce = rand.Uint32()
@@ -548,10 +550,10 @@ func onConnect(rw *saferw.SafeRW) {
 	loggermsg.Info("working start~~~~~~~~~~~~")
 	//time.Sleep(time.Minute * 100)
 
-	//{
-	//	doLogin(rw)
-	//	doGetState(rw)
-	//}
+	{
+		doLogin(rw)
+		doGetState(rw)
+	}
 
 	//{
 	//	doLogin(rw)
@@ -730,10 +732,10 @@ func onConnect(rw *saferw.SafeRW) {
 	//	approvalApply(rw, "14fzqramdntchdt8qz6ka93ehprjryeb7nf2cj9hp5x03dtknr5skdjka", 1, "son")
 	//}
 
-	{
-		doLogin(rw)
-		getShareUsers(rw)
-	}
+	//{
+	//	doLogin(rw)
+	//	getShareUsers(rw)
+	//}
 
 	loggermsg.Info("working done~~~~~~~~~~~~")
 }

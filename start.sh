@@ -3,3 +3,6 @@
 
 #./app -p 52021  -pid 12D3KooWHngcHSLHVDM5nzGCAoCBnpdjAG9z51Z7cT4qtgERH62K
 ./app -p 52021  -pid 12D3KooWSfwRSkb9V5ChPQfX18JEgcdWm29Eo1q8zUtk7Ar6PeTp
+
+# 测试盒子
+#./app -p 52021  -pid 12D3KooWLRuQbLEpSKuR2fuBkCbhuwLiTWNQzo5nqxJr3Z31NZcU
