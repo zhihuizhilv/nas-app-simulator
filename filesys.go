@@ -38,6 +38,38 @@ func doAppendBackupTerm(rw *SafeRW, path string, term uint64) {
 	loggermsg.Info("append backup term resp suc, resp:", resp)
 }
 
+func doAddBackup(rw *SafeRW, paths []string, backupNum uint32, term uint64) {
+	req := p2pprotocol.AddBackup {
+		Nonce: rand.Uint32(),
+		Paths: paths,
+		BackupNum: backupNum,
+		BackupTerm: term,
+	}
+
+	sendMsg(p2pprotocol.ADD_BACKUP, &req, rw)
+
+	body := make([]byte, 1024*256)
+	msgLen, msgId, body, err := p2pprotocol.ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read one msg fail. err:", err)
+		return
+	}
+
+	if msgId != uint32(p2pprotocol.ADD_BACKUP_RESP) {
+		loggermsg.Error("resp msg id invalid, msgid:", msgId)
+		return
+	}
+
+	var resp p2pprotocol.AddBackupResp
+	err = proto.Unmarshal(body[:msgLen-8], &resp)
+	if err != nil {
+		loggermsg.Error("protobuf unmarshal AddBackupResp fail. err:", err)
+		return
+	}
+
+	loggermsg.Info("AddBackupResp suc, resp:", resp)
+}
+
 func doExplorDir(rw *SafeRW, dir string) {
 	var req p2pprotocol.ExplorDir
 	req.Nonce = rand.Uint32()

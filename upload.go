@@ -12,8 +12,8 @@ import (
 )
 
 func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
-	loggermsg.Info("upload faile begin ~~~~~~~~~")
-	defer loggermsg.Info("upload faile end ~~~~~~~~~")
+	loggermsg.Info("upload file begin ~~~~~~~~~")
+	defer loggermsg.Info("upload file end ~~~~~~~~~")
 
 	filePath := "./" + filename
 	fileSize := getFileSize(filePath)
@@ -25,7 +25,7 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 	prepareUpload.Size = fileSize
 	prepareUpload.Hash = getFileHash(filePath)
 	prepareUpload.Encrypt = 0
-	prepareUpload.BackupNum = 1
+	prepareUpload.BackupNum = 3
 	prepareUpload.BackupTerm = 100000
 
 
@@ -97,9 +97,94 @@ func doUploadFile(rw *saferw.SafeRW, filename string, dir string) {
 }
 
 
+func doUploadFileNoBackup(rw *saferw.SafeRW, filename string, dir string) {
+	loggermsg.Info("upload file begin ~~~~~~~~~")
+	defer loggermsg.Info("upload file end ~~~~~~~~~")
+
+	filePath := "./" + filename
+	fileSize := getFileSize(filePath)
+
+	var prepareUpload p2pprotocol.PrepareUploadFile
+	prepareUpload.Nonce = rand.Uint32()
+	prepareUpload.Path = dir + "/" + filename
+	prepareUpload.MimeType = "application/octet-stream"
+	prepareUpload.Size = fileSize
+	prepareUpload.Hash = getFileHash(filePath)
+	prepareUpload.Encrypt = 0
+	prepareUpload.BackupNum = 0
+	prepareUpload.BackupTerm = 0
+
+
+	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE:", prepareUpload)
+	err := sendMsg(p2pprotocol.PREPARE_UPLOADFILE, &prepareUpload, rw)
+	if err != nil {
+		return
+	}
+
+	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE end")
+	body := make([]byte, 1024)
+	len, cmd, body, err := ReadOneMsg(rw, body)
+	if p2pprotocol.P2pMsgID(cmd) != p2pprotocol.PREPARE_UPLOADFILE_RESP {
+		loggermsg.Error("invalid resp msg id")
+		return
+	}
+
+	var resp p2pprotocol.PrepareUploadFileResp
+	err = proto.Unmarshal(body[:len-8], &resp)
+	if err != nil {
+		loggermsg.Error("protobuf unmarshal fail. err:", err)
+		return
+	}
+
+	loggermsg.Info("prepare upload resp:", resp)
+	loggermsg.Info("~~~~~~~~~~upload offset:", resp.Offset)
+
+	// 发送数据帧
+	f, err := os.Open(filePath)
+	if err != nil {
+		loggermsg.Error("open file fail, err:", err)
+		return
+	}
+	defer f.Close()
+
+	f.Seek(int64(resp.Offset), 0)
+	frameSize := uint64(1024 * 1024)
+	frameNum := (fileSize - resp.Offset) / frameSize
+	if fileSize%frameSize != 0 {
+		frameNum++
+	}
+
+	loggermsg.Info("fileSize:", fileSize, ", frameSize:", frameSize, ", frameNum:", frameNum)
+	var i uint32
+	offset := resp.Offset
+	buf := make([]byte, frameSize)
+	for {
+		n, _ := f.Read(buf)
+		if n == 0 {
+			break
+		}
+
+		var uploadFrame p2pprotocol.UploadFileFrame
+		uploadFrame.TaskId = resp.TaskId
+		uploadFrame.FrameNum = uint32(frameNum)
+		uploadFrame.FrameId = i
+		uploadFrame.Offset = offset
+		uploadFrame.FrameHash = getDataHash(buf[:n])
+		uploadFrame.Data = buf[:n]
+		sendMsg(p2pprotocol.UPLOADFILE_FRAME, &uploadFrame, rw)
+		loggermsg.Info("sent frame. frame id:", i, ", len:", n)
+
+		i++
+		offset += uint64(n)
+	}
+
+	loggermsg.Info("sent frames finish")
+	readMsg(rw)
+}
+
 func doUploadFileHalf(rw *saferw.SafeRW, filename string, dir string) {
-	loggermsg.Info("upload faile begin ~~~~~~~~~")
-	defer loggermsg.Info("upload faile end ~~~~~~~~~")
+	loggermsg.Info("upload file begin ~~~~~~~~~")
+	defer loggermsg.Info("upload file end ~~~~~~~~~")
 
 	filePath := "./" + filename
 	fileSize := getFileSize(filePath)
@@ -170,8 +255,8 @@ func doUploadFileHalf(rw *saferw.SafeRW, filename string, dir string) {
 }
 
 func doUploadThumbnail(rw *saferw.SafeRW, filename, thumbnail, dir string) {
-	loggermsg.Info("upload faile begin ~~~~~~~~~")
-	defer loggermsg.Info("upload faile end ~~~~~~~~~")
+	loggermsg.Info("upload file begin ~~~~~~~~~")
+	defer loggermsg.Info("upload file end ~~~~~~~~~")
 
 	filePath := "./" + filename
 	fileSize := getFileSize(filePath)
@@ -183,7 +268,7 @@ func doUploadThumbnail(rw *saferw.SafeRW, filename, thumbnail, dir string) {
 	prepareUpload.Size = fileSize
 	prepareUpload.Hash = getFileHash(filePath)
 	prepareUpload.Encrypt = 1
-	prepareUpload.BackupNum = 0
+	prepareUpload.BackupNum = 1
 
 	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE")
 	err := sendMsg(p2pprotocol.PREPARE_UPLOADFILE, &prepareUpload, rw)
@@ -192,8 +277,23 @@ func doUploadThumbnail(rw *saferw.SafeRW, filename, thumbnail, dir string) {
 	}
 
 	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE end")
-	readMsg(rw)
-	loggermsg.Info("begin send file frame")
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.PREPARE_UPLOADFILE_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.PREPARE_UPLOADFILE_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.PrepareUploadFileResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal GetApplyUsersResp fail, err:", err)
+		return
+	}
 	///////////////////////////////prepare//////////////////////////////////
 
 
@@ -205,7 +305,7 @@ func doUploadThumbnail(rw *saferw.SafeRW, filename, thumbnail, dir string) {
 		return
 	}
 
-	uploadThumbnail.TaskId = taskid
+	uploadThumbnail.TaskId = resp.TaskId
 	uploadThumbnail.Data = data
 	loggermsg.Info("~~~~~~~~~send msg : PREPARE_UPLOADFILE")
 	err = sendMsg(p2pprotocol.UPLOADFILE_THUMBNAIL, &uploadThumbnail, rw)
@@ -240,7 +340,7 @@ func doUploadThumbnail(rw *saferw.SafeRW, filename, thumbnail, dir string) {
 		}
 
 		var uploadFrame p2pprotocol.UploadFileFrame
-		uploadFrame.TaskId = taskid
+		uploadFrame.TaskId = resp.TaskId
 		uploadFrame.FrameNum = uint32(frameNum)
 		uploadFrame.FrameId = i
 		uploadFrame.Offset = offset

@@ -33,6 +33,35 @@ var (
 	COMMUNICATE_ADDR  = ":52031"
 )
 
+func getBindingStatus(rw *SafeRW) {
+	loggermsg.Info("isBinding")
+
+	var req p2pprotocol.GetBindingStatus
+	req.Nonce = rand.Uint32()
+
+	sendMsg(p2pprotocol.GET_BINDINGSTATUS, &req, rw)
+
+	body := make([]byte, 1024)
+	msglen, cmdid, body, err := ReadOneMsg(rw, body)
+	if err != nil {
+		loggermsg.Error("read resp msg fail. err:", err)
+		return
+	}
+
+	if p2pprotocol.P2pMsgID(cmdid) != p2pprotocol.GET_BINDINGSTATUS_RESP {
+		loggermsg.Error("invalid resp msg cmd id, expect:", p2pprotocol.GET_BINDINGSTATUS_RESP, ", actual:", cmdid)
+	}
+
+	var resp p2pprotocol.GetBindingStatusResp
+	err = proto.Unmarshal(body[0:msglen-8], &resp)
+	if err != nil {
+		loggermsg.Error("proto unmarshal GetBindingStatusResp fail, err:", err)
+		return
+	}
+
+	loggermsg.Info("GetBindingStatusResp:", resp)
+}
+
 func doOpenBinding(rw *SafeRW) {
 	loggermsg.Info("doOpenBinding")
 

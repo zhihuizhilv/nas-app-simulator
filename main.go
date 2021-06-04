@@ -44,6 +44,8 @@ var (
 
 	taskid string
 	MAXMSGLEN = 1024 * 1024 * 2
+
+	threadNum = 1
 )
 
 func init() {
@@ -94,19 +96,11 @@ func startP2p() {
 	cnfBuilder := config.Builder().Logger(logger).Port(args.hostPort).PrivateKey(fullPath)
 	cnfBuilder.Advertise(time.Second*10, time.Second*20)
 
-	//bootstrapPeers := []communication.PeerInfo{
-	//	{
-	//		"12D3KooWHGwQULtBt3VzbKFYvk5zHS24gZ4CYWgYzRgUJeVHkpo8",
-	//		[]communication.EndPoint{
-	//			{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25556"},
-	//		},
-	//	},
-	//}
 	bootstrapPeers := []communication.PeerInfo{
 		{
-			"12D3KooWNbhT78jpWBUvKuyEVJJhkwSDkMgfa187YD6ijepkQWg3",
+			BootstrapPeerid,
 			[]communication.EndPoint{
-				{communication.AddressFormatLibp2p, "/dns4/dabank.coinbi.io/tcp/25557"},
+				{communication.AddressFormatLibp2p, BootstrapServer},
 			},
 		},
 	}
@@ -186,7 +180,10 @@ func readCmdArgs() *testTarget {
 	udpClient = flag.Bool("udpc", false, "udp client")
 	udpServer = flag.Bool("udps", false, "udp server")
 
+	thread := flag.Int("thread", 1, "thread number")
+
 	flag.Parse()
+	threadNum = *thread
 
 	var mode = config.PeerModePeer
 	if *pType == "server" {
@@ -218,7 +215,6 @@ func doLogin(rw *saferw.SafeRW) error {
 
 	signData := GetAppLoginSignData(&login)
 	signBuf := bbcsign.Ed25519Sign(BbcKey, signData)
-	signBuf[0] += 1
 	login.Sign = hex.EncodeToString(signBuf)
 	sendMsg(p2pprotocol.APP_LOGIN, &login, rw)
 
@@ -494,7 +490,6 @@ func doBoxLogin(rw *saferw.SafeRW) {
 	var login p2pprotocol.BoxLogin
 	login.Nonce = rand.Uint32()
 	login.Timestamp = uint64(time.Now().Unix())
-	login.Token = ""
 
 	err := sendMsg(p2pprotocol.BOX_LOGIN, &login, rw)
 	if err != nil {
@@ -534,8 +529,8 @@ func doListRecycle(rw *saferw.SafeRW) {
 func doSpaceSetting(rw *saferw.SafeRW) {
 	var setting p2pprotocol.SpaceSetting
 	setting.Nonce = rand.Uint32()
-	setting.ReservedSpace = 1024*1024*1024*10
-	setting.SharedSpace = 296092692480 - setting.ReservedSpace
+	setting.ReservedSpace = 48046346240
+	setting.SharedSpace = 248046346240
 	err := sendMsg(p2pprotocol.SPACE_SETTING, &setting, rw)
 	if err != nil {
 		loggermsg.Error("send space setting fail. err:", err)
@@ -550,10 +545,10 @@ func onConnect(rw *saferw.SafeRW) {
 	loggermsg.Info("working start~~~~~~~~~~~~")
 	//time.Sleep(time.Minute * 100)
 
-	{
-		doLogin(rw)
-		doGetState(rw)
-	}
+	//{
+	//	doLogin(rw)
+	//	doGetState(rw)
+	//}
 
 	//{
 	//	doLogin(rw)
@@ -564,16 +559,17 @@ func onConnect(rw *saferw.SafeRW) {
 
 	//{
 	//	doLogin(rw)
-	//	doCreateDir(rw, "/20201113/lzh1/testdir1")
-	//	doCreateDir(rw, "/20201113/lzh1/testdir2")
-	//	doCreateDir(rw, "/20201113/lzh1/testdir3")
-	//	doCreateDir(rw, "/20201113/lzh1/testdir4")
-	//	doCreateDir(rw, "/20201113/lzh1/testdir5")
+	//	doCreateDir(rw, "/20210106/lzh1/testdir1")
+	//	doCreateDir(rw, "/20210106/lzh1/testdir2")
+	//	doCreateDir(rw, "/20210106/lzh1/testdir3")
+	//	doCreateDir(rw, "/20210106/lzh1/testdir4")
+	//	doCreateDir(rw, "/20210106/lzh1/testdir5")
 	//}
 
 	//{
 	//	doLogin(rw)
-	//	doAppendBackupTerm(rw, "/20201216/lzh1/app_dld1", 100000)
+	//	//doAppendBackupTerm(rw, "/20210109/share/main.go", 100000)
+	//	doAppendBackupTerm(rw, "/20210106/share/main.go", 100000)
 	//	//doExplorDir(rw, "/20201017-2")
 	//	//doExplorDir(rw, "/20201017-2/")
 	//	//doExplorDir(rw, "/20201103/lzh1/")
@@ -581,30 +577,41 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	//{
-	//	//doLogin(rw)
-	//	//doExplorDir(rw, "/20201123/lzh1")
+	//	doLogin(rw)
+	//	//doExplorDir(rw, "/")
+	//	//doExplorDir(rw, "/20210106")
+	//	doExplorDir(rw, "/20210106/lzh1")
+	//	//doExplorDir(rw, "/20210106/share")
 	//	//doExplorDir(rw, "/20201017-2")
 	//	//doExplorDir(rw, "/20201017-2/")
 	//	//doExplorDir(rw, "/20201103/lzh1/")
 	//	//doExplorDir(rw, "/20201102/lzh1/data")
 	//}
 
-
-
 	//{
 	//	doLogin(rw)
-	//	doRenamePath(rw, "/20201017-2", "20201017-3")
+	//	doRenamePath(rw, "/20210106/lzh1/testdir1", "testdir1-2")
+	//	doRenamePath(rw, "/20210106/share/go.mod", "go.mod.bak")
 	//}
 
 	//{
 	//	doLogin(rw)
-	//
-	//	paths := make([]string, 2)
-	//	paths[0] = "/20201103/lzh1/private.key"
+	//	paths := make([]string, 3)
+	//	paths[0] = "/20210106/lzh1/testdir1"
+	//	paths[1] = "/20210106/lzh1/testdir2"
+	//	paths[2] = "/20210106/share/go.mod.bak"
 	//	doPutinRecycle(rw, paths)
 	//	//doDredgeOutRecycle(rw, paths)
 	//}
-	//
+
+	//{
+	//	doLogin(rw)
+	//	paths := make([]string, 1)
+	//	paths[0] = "/20210128/lzh1/data/lotus_v0.1.0_linux-amd64.tar.gz"
+	//	doPutinRecycle(rw, paths)
+	//	doPutinRecycle(rw, paths)
+	//}
+
 	//{
 	//	doLogin(rw)
 	//	doListRecycle(rw)
@@ -612,15 +619,9 @@ func onConnect(rw *saferw.SafeRW) {
 
 	//{
 	//	doLogin(rw)
-	//	doRenamePath(rw, "/20201017-2", "20201017-3")
-	//}
-
-	//{
-	//	doLogin(rw)
-	//
 	//	folderPaths := make([]string, 2)
-	//	folderPaths[0] = "/20201017-3/files/testdir2"
-	//	folderPaths[1] = "/20201017-3/files/testdir3"
+	//	folderPaths[0] = "/20210111/share/data/lotus_v0.1.0_linux-amd64.tar.gz"
+	//	folderPaths[1] = "/20210111/share/main.go"
 	//	doDeleteFiles(rw, folderPaths)
 	//
 	//	//filePaths := make([]string, 2)
@@ -630,16 +631,16 @@ func onConnect(rw *saferw.SafeRW) {
 	//}
 
 	//{
-	//	remoteDir := "/20201223/lzh1"
+	//	remoteDir := "/20210128/lzh1"
 	//	doLogin(rw)
-	//	//doUploadFileHalf(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
-	//	//doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
+	//	doUploadFileHalf(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
+	//	doUploadFile(rw, "data/lotus_v0.1.0_linux-amd64.tar.gz", remoteDir)
 	//	//doUploadFile(rw, "data/lws-iot-sdk-master.zip", remoteDir)
 	//	//doUploadFile(rw, "data/app1", remoteDir)
 	//	//doUploadFile(rw, "go.mod", remoteDir)
 	//	//doUploadFile(rw, "go.sum", remoteDir)
 	//	//doUploadFile(rw, "main.go", remoteDir)
-	//	doUploadFile(rw, "app_dld1", remoteDir)
+	//	//doUploadFile(rw, "app_dld1", remoteDir)
 	//	//doUploadFile(rw, "app_dld2", remoteDir)
 	//}
 
@@ -652,27 +653,26 @@ func onConnect(rw *saferw.SafeRW) {
 
 
 	//{
-	//	remoteDir := "/20201028/lzh1/"
+	//	remoteDir := "/20210117/lzh2/"
 	//	doLogin(rw)
 	//	doUploadThumbnail(rw, "data/app1", "data/thumbnail", remoteDir)
 	//}
 
 	//{
-	//	remoteDir := "/20201028/lzh1/"
+	//	remoteDir := "/20210106/lzh2/"
 	//	doLogin(rw)
-	//	doDownloadThumbnail(rw, remoteDir+"data/app1", "./dld2/20201028-1.dld")
+	//	doDownloadThumbnail(rw, remoteDir+"data/app1", "./dld2/20210106-10.dld")
 	//}
 
-
 	//{
-	//	remoteDir := "/20201104/lzh3/"
+	//	remoteDir := "/20210106/share/"
 	//	doLogin(rw)
-	//	doDownloadFile(rw, remoteDir+"data/lotus_v0.1.0_linux-amd64.tar.gz", "./dld2/20201104-1.dld")
-	//	//doDownloadFile(rw, remoteDir+"data/lws-iot-sdk-master.zip", "./dld2/20201023-2.dld")
-	//	//doDownloadFile(rw, remoteDir+"data/app1", "./dld2/20201023-3.dld")
-	//	//doDownloadFile(rw, remoteDir+"go.mod", "./dld2/20201023-4.dld")
-	//	//doDownloadFile(rw, remoteDir+"go.sum", "./dld2/20201023-5.dld")
-	//	//doDownloadFile(rw, remoteDir+"main.go", "./dld2/20201023-6.dld")
+	//	doDownloadFile(rw, remoteDir+"data/lotus_v0.1.0_linux-amd64.tar.gz", "./dld2/20201023-1.dld")
+	//	doDownloadFile(rw, remoteDir+"data/lws-iot-sdk-master.zip", "./dld2/20201023-2.dld")
+	//	doDownloadFile(rw, remoteDir+"data/app1", "./dld2/20201023-3.dld")
+	//	doDownloadFile(rw, remoteDir+"go.mod", "./dld2/20210106-4.dld")
+	//	doDownloadFile(rw, remoteDir+"go.sum", "./dld2/20201023-5.dld")
+	//	doDownloadFile(rw, remoteDir+"main.go", "./dld2/20201023-6.dld")
 	//	//doDownloadFile(rw, remoteDir+"Makefile", "./dld2/20201023-7.dld")
 	//	//doDownloadFile(rw, remoteDir+"private.key", "./dld2/20201023-8.dld")
 	//}
@@ -714,7 +714,7 @@ func onConnect(rw *saferw.SafeRW) {
 
 	//{
 	//	doLogin(rw)
-	//	doOpenBinding(rw)
+	//	getBindingStatus(rw)
 	//}
 
 	//{
@@ -729,13 +729,32 @@ func onConnect(rw *saferw.SafeRW) {
 
 	//{
 	//	doLogin(rw)
-	//	approvalApply(rw, "14fzqramdntchdt8qz6ka93ehprjryeb7nf2cj9hp5x03dtknr5skdjka", 1, "son")
+	//	approvalApply(rw, "1ry1yr1x19krz9yp7hj06cqvam5tv5r3r8df8h4pqbm9zn2178hdvshkd", 1, "hb")
 	//}
 
 	//{
 	//	doLogin(rw)
 	//	getShareUsers(rw)
 	//}
+
+	//{
+	//	remoteDir := "/20210220/lzh2"
+	//	files := []string{"go.mod", "Makefile"}
+	//	paths := make([]string, 0, len(files))
+	//	doLogin(rw)
+	//	for _, name := range files {
+	//		doUploadFileNoBackup(rw, name, remoteDir)
+	//		paths = append(paths, remoteDir+"/"+name)
+	//	}
+	//
+	//	time.Sleep(time.Second*10)
+	//	doAddBackup(rw, paths, 3, 10000)
+	//}
+
+	{
+		doLogin(rw)
+		Upgrade(rw)
+	}
 
 	loggermsg.Info("working done~~~~~~~~~~~~")
 }
